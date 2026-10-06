@@ -1,0 +1,217 @@
+# Marketpalce
+
+Web app
+
+## Stack
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- PostgreSQL
+- Prisma
+- Zod
+
+## Current status
+
+The repository has been initialized with a foundation Next.js app and a marketplace data model suitable for the next phase of product work.
+
+## Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy the environment template:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Set `DATABASE_URL` and `AUTH_SECRET` values.
+4. Run Prisma generate:
+   ```bash
+   npx prisma generate
+   ```
+5. Run the app:
+   ```bash
+   npm run dev
+   ```
+
+## Authentication foundation
+
+The app now includes a secure session-based auth foundation with:
+
+- password hashing via PBKDF2
+- registration route
+- login route
+- logout route
+- session cookie handling
+- Prisma Session model
+
+## Database
+
+The Prisma schema includes initial models for users, providers, categories, listings, service requests, quotes, orders, payments, payouts, messaging, reviews, notifications, and audit logging.
+
+## Next milestones
+
+- Add protected dashboard routes and role checks
+- Build marketplace listing CRUD and search
+- Implement quotes and order state transitions
+- Add Stripe Connect payment and webhook layer
+- Build admin toolkit and moderation flows
+
+## Environment
+
+See `.env.example` for the base environment variable set.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,15 +1,34 @@
-import { PrismaClient } from '@prisma/client';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-};
+import { prisma } from '@/lib/prisma';
+import { hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
+export async function GET() {
+  const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return NextResponse.json({ user: null }, { status: 200 });
+  }
+
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: hashSessionToken(token) },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true
+        }
+      }
+    }
   });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
+  if (!session || session.expiresAt < new Date()) {
+    return NextResponse.json({ user: null }, { status: 200 });
+  }
+
+  return NextResponse.json({ user: session.user }, { status: 200 });
 }
+
