@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/password';
-import { generateSessionToken, getSessionMaxAgeSeconds, hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import {
+  generateSessionToken,
+  getSessionMaxAgeSeconds,
+  hashSessionToken,
+  SESSION_COOKIE_NAME,
+} from '@/lib/session';
 import { LoginSchema } from '@/lib/validators';
 
 export async function POST(request: Request) {
@@ -25,8 +30,8 @@ export async function POST(request: Request) {
         email: true,
         name: true,
         role: true,
-        passwordHash: true
-      }
+        passwordHash: true,
+      },
     });
 
     if (!user || !user.passwordHash) {
@@ -46,8 +51,8 @@ export async function POST(request: Request) {
       data: {
         userId: user.id,
         tokenHash: hashSessionToken(sessionToken),
-        expiresAt
-      }
+        expiresAt,
+      },
     });
 
     cookies().set({
@@ -57,7 +62,7 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: getSessionMaxAgeSeconds()
+      maxAge: getSessionMaxAgeSeconds(),
     });
 
     return NextResponse.json({
@@ -65,8 +70,8 @@ export async function POST(request: Request) {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error('Login failed', error);

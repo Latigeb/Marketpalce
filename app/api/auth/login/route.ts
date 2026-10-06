@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
-import { generateSessionToken, getSessionMaxAgeSeconds, hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import {
+  generateSessionToken,
+  getSessionMaxAgeSeconds,
+  hashSessionToken,
+  SESSION_COOKIE_NAME,
+} from '@/lib/session';
 import { RegisterSchema } from '@/lib/validators';
 
 export async function POST(request: Request) {
@@ -19,28 +24,26 @@ export async function POST(request: Request) {
     const normalizedEmail = email.toLowerCase();
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail }
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
       return NextResponse.json({ error: 'An account with that email already exists.' }, { status: 409 });
     }
 
-    const passwordHash = await hashPassword(password);
-
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
         name,
-        passwordHash,
-        role: role ?? 'CUSTOMER'
+        passwordHash: await hashPassword(password),
+        role: role ?? 'CUSTOMER',
       },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true
-      }
+        role: true,
+      },
     });
 
     const sessionToken = generateSessionToken();
@@ -50,8 +53,8 @@ export async function POST(request: Request) {
       data: {
         userId: user.id,
         tokenHash: hashSessionToken(sessionToken),
-        expiresAt
-      }
+        expiresAt,
+      },
     });
 
     cookies().set({
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: getSessionMaxAgeSeconds()
+      maxAge: getSessionMaxAgeSeconds(),
     });
 
     return NextResponse.json({ user }, { status: 201 });
