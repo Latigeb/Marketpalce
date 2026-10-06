@@ -1,17 +1,16 @@
-import { createHmac, randomBytes } from 'crypto';
+import { z } from 'zod';
 
-export const SESSION_COOKIE_NAME = 'marketconnect_session';
+export const RegisterSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(128),
+  role: z.enum(['CUSTOMER', 'PROVIDER', 'ADMIN']).optional().default('CUSTOMER')
+});
 
-export function generateSessionToken(): string {
-  return randomBytes(32).toString('hex');
-}
+export const LoginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(128)
+});
 
-export function hashSessionToken(token: string): string {
-  const secret = process.env.AUTH_SECRET ?? 'development-secret';
-  return createHmac('sha256', secret).update(token).digest('hex');
-}
-
-export function getSessionMaxAgeSeconds(): number {
-  return 60 * 60 * 24 * 7;
-}
-
+export type RegisterInput = z.infer<typeof RegisterSchema>;
+export type LoginInput = z.infer<typeof LoginSchema>;

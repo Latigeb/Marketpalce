@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
-import { getSessionMaxAgeSeconds, generateSessionToken, hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import { generateSessionToken, getSessionMaxAgeSeconds, hashSessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
 import { RegisterSchema } from '@/lib/validators';
 
 export async function POST(request: Request) {
@@ -70,4 +70,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unable to create account.' }, { status: 500 });
   }
 }
-
