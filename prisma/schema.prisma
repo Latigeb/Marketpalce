@@ -1,3 +1,6 @@
+// Prisma schema for MarketConnect marketplace
+// Supports multi-category marketplace with users, listings, orders, payments, reviews, and messaging
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,41 +10,509 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Core user and auth models
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  role         Role     @default(CUSTOMER)
+  
+  // Relationships
+  customerProfile    CustomerProfile?
+  providerProfile    ProviderProfile?
+  orders             Order[]
+  createdRequests    ServiceRequest[]
+  sentQuotes         Quote[]
+  sentMessages       Message[]
+  receivedMessages   Message[]       @relation("ReceiverMessages")
+  reviews            Review[]
+  favorites          Favorite[]
+  addresses          Address[]
+  sessions           Session[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
 enum Role {
   CUSTOMER
   PROVIDER
   ADMIN
 }
 
-model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  passwordHash String?
-  role         Role      @default(CUSTOMER)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  sessions     Session[]
+// Customer profile
+model CustomerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  phone     String?
+  verified  Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model Session {
+// Provider profile
+model ProviderProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessName     String?
+  bio              String?
+  verified         Boolean  @default(false)
+  verificationDate DateTime?
+  profileImage     String?
+  
+  listings         Listing[]
+  quotes           Quote[]
+  orders           Order[]      @relation("ProviderOrders")
+  reviews          Review[]     @relation("ProviderReviews")
+  availability     Availability[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Addresses for users
+model Address {
   id        String   @id @default(cuid())
   userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
+  
+  street    String
+  city      String
+  state     String?
+  zip       String?
+  country   String
+  isDefault Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
+// Categories for marketplace
 model Category {
   id        String   @id @default(cuid())
   name      String   @unique
   slug      String   @unique
+  icon      String?
+  
+  listings  Listing[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Listings (polymorphic for services, properties, vehicles)
+model Listing {
+  id        String   @id @default(cuid())
+  
+  title            String
+  description      String
+  slug             String   @unique
+  category         Category @relation(fields: [categoryId], references: [id])
+  categoryId       String
+  
+  provider         ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId       String
+  
+  price            Int      // Minor currency units (cents)
+  pricingType      PricingType @default(FIXED)
+  location         String?
+  status           ListingStatus @default(ACTIVE)
+  
+  images           ListingImage[]
+  reviews          Review[]
+  favorites        Favorite[]
+  
+  // Polymorphic type for service, property, vehicle
+  serviceData      ServiceListing?
+  propertyData     PropertyListing?
+  vehicleData      VehicleListing?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([providerId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  
+  url       String
+  alt       String?
+  order     Int      @default(0)
+  
+  createdAt DateTime @default(now())
+}
+
+// Service-specific listing data
+model ServiceListing {
+  id        String   @id @default(cuid())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String   @unique
+  
+  experience String?
+  serviceArea String?
+  tags        String?  // JSON array or comma-separated
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Property-specific listing data
+model PropertyListing {
+  id        String   @id @default(cuid())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String   @unique
+  
+  propertyType     String  // house, apartment, office, etc.
+  transactionType  String  // sale, rent
+  bedrooms         Int?
+  bathrooms        Int?
+  squareFeet       Int?
+  amenities        String? // JSON or comma-separated
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Vehicle-specific listing data
+model VehicleListing {
+  id        String   @id @default(cuid())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String   @unique
+  
+  make          String
+  model         String
+  year          Int
+  mileage       Int?
+  condition     String // excellent, good, fair, poor
+  transmission  String? // manual, automatic
+  fuelType      String? // gas, electric, hybrid
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ListingStatus {
+  ACTIVE
+  INACTIVE
+  DELISTED
+}
+
+enum PricingType {
+  FIXED
+  HOURLY
+  DAILY
+  STARTING_FROM
+  CUSTOM_QUOTE
+}
+
+// Service requests from customers
+model ServiceRequest {
+  id        String   @id @default(cuid())
+  customer  User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  
+  category  String
+  description String
+  date      DateTime?
+  startTime String?
+  endTime   String?
+  location  String?
+  budget    Int?    // Minor currency units
+  status    RequestStatus @default(OPEN)
+  
+  quotes    Quote[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([status])
+}
+
+enum RequestStatus {
+  OPEN
+  QUOTED
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
+// Quotes from providers
+model Quote {
+  id        String   @id @default(cuid())
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  
+  provider  ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  
+  price            Int     // Minor currency units
+  description      String?
+  estimatedDuration String?
+  expirationDate   DateTime?
+  
+  status    QuoteStatus @default(SENT)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([requestId])
+  @@index([providerId])
+  @@index([status])
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+// Orders
+model Order {
+  id        String   @id @default(cuid())
+  customer  User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  
+  provider  ProviderProfile @relation("ProviderOrders", fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listingId String?
+  
+  amount    Int     // Minor currency units
+  status    OrderStatus @default(REQUESTED)
+  
+  statusHistory OrderStatusHistory[]
+  payments      Payment[]
+  review        Review?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([providerId])
+  @@index([status])
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  
+  status    OrderStatus
+  reason    String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([orderId])
+}
+
+enum OrderStatus {
+  REQUESTED
+  QUOTED
+  ACCEPTED
+  PAYMENT_PENDING
+  PAYMENT_CONFIRMED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CUSTOMER_CONFIRMED
+  PAYOUT_PENDING
+  PAID
+  CANCELLED
+  DISPUTED
+  REFUNDED
+}
+
+// Payments and transactions
+model Payment {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  
+  amount    Int     // Minor currency units
+  status    PaymentStatus @default(PENDING)
+  
+  stripePaymentIntentId String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([orderId])
+  @@index([status])
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// Reviews
+model Review {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String   @unique
+  
+  customer  User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId String
+  
+  provider  ProviderProfile @relation("ProviderReviews", fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  
+  rating    Int      // 1-5
+  comment   String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([providerId])
+  @@index([listingId])
+}
+
+// Messaging
+model Conversation {
+  id        String   @id @default(cuid())
+  participants String[] // User IDs
+  
+  messages  Message[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId  String
+  
+  receiver  User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId String
+  
+  content   String
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+// Notifications
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([readAt])
+}
+
+enum NotificationType {
+  NEW_REQUEST
+  NEW_QUOTE
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  PAYMENT_RECEIVED
+  ORDER_UPDATE
+  NEW_MESSAGE
+  REVIEW
+  REFUND
+  DISPUTE
+  VERIFICATION_RESULT
+}
+
+// Favorites
+model Favorite {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, listingId])
+  @@index([userId])
+}
+
+// Provider availability
+model Availability {
+  id        String   @id @default(cuid())
+  provider  ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerId String
+  
+  dayOfWeek Int?      // 0-6 for recurring
+  startTime String?   // HH:MM
+  endTime   String?   // HH:MM
+  
+  unavailableDate DateTime? // For specific dates
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([providerId])
+}
+
+// Audit logs for compliance
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  
+  action    String
+  entity    String
+  entityId  String
+  changes   String?  // JSON
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
 }
